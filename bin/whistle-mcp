@@ -1,0 +1,29 @@
+#!/bin/bash
+# Whistle Client MCP Server launcher
+# Locates the Whistle app and runs the MCP server using its bundled Node runtime
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+APP_DIR="$(dirname "$SCRIPT_DIR")"
+MCP_ENTRY="$APP_DIR/mcp-server/dist/index.js"
+
+if [ "$(uname)" = "Darwin" ]; then
+  # macOS: try to find Whistle.app
+  if [ -f "$MCP_ENTRY" ]; then
+    # Running from within the app bundle
+    ELECTRON="$(dirname "$APP_DIR")/MacOS/Whistle"
+  elif [ -f "/Applications/Whistle.app/Contents/Resources/app/mcp-server/dist/index.js" ]; then
+    ELECTRON="/Applications/Whistle.app/Contents/MacOS/Whistle"
+    MCP_ENTRY="/Applications/Whistle.app/Contents/Resources/app/mcp-server/dist/index.js"
+  fi
+fi
+
+# Prefer system node if available, fall back to Electron-as-Node
+if command -v node >/dev/null 2>&1; then
+  exec node "$MCP_ENTRY" "$@"
+elif [ -n "$ELECTRON" ] && [ -f "$ELECTRON" ]; then
+  export ELECTRON_RUN_AS_NODE=1
+  exec "$ELECTRON" "$MCP_ENTRY" "$@"
+else
+  echo "Error: node not found. Install Node.js or ensure Whistle Client is installed." >&2
+  exit 1
+fi
