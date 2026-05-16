@@ -24,24 +24,29 @@ function readPidFile() {
     }
 }
 export class WhistleClient {
-    baseUrl;
-    authHeader;
+    config;
     constructor(config = {}) {
+        this.config = config;
+    }
+    getConnectionInfo() {
         const pidInfo = readPidFile();
-        const host = config.host || pidInfo?.host || "127.0.0.1";
-        const port = config.port || pidInfo?.port || 8899;
-        this.baseUrl = `http://${host}:${port}`;
-        if (config.username) {
-            const credentials = Buffer.from(`${config.username}:${config.password || ""}`).toString("base64");
-            this.authHeader = `Basic ${credentials}`;
+        const host = this.config.host || pidInfo?.host || "127.0.0.1";
+        const port = this.config.port || pidInfo?.port || 8899;
+        const baseUrl = `http://${host}:${port}`;
+        let authHeader;
+        if (this.config.username) {
+            const credentials = Buffer.from(`${this.config.username}:${this.config.password || ""}`).toString("base64");
+            authHeader = `Basic ${credentials}`;
         }
         else if (pidInfo?.auth) {
-            this.authHeader = `Basic ${pidInfo.auth}`;
+            authHeader = `Basic ${pidInfo.auth}`;
         }
+        return { baseUrl, authHeader };
     }
     async request(path, options = {}) {
         const { method = "GET", body, params } = options;
-        let url = `${this.baseUrl}${path}`;
+        const { baseUrl, authHeader } = this.getConnectionInfo();
+        let url = `${baseUrl}${path}`;
         if (params) {
             url += `?${new URLSearchParams(params).toString()}`;
         }
@@ -50,8 +55,8 @@ export class WhistleClient {
             "X-Requested-With": "XMLHttpRequest",
             "Cache-Control": "no-cache",
         };
-        if (this.authHeader) {
-            headers["Authorization"] = this.authHeader;
+        if (authHeader) {
+            headers["Authorization"] = authHeader;
         }
         if (body) {
             headers["Content-Type"] = "application/x-www-form-urlencoded";

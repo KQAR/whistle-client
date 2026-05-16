@@ -39,23 +39,28 @@ function readPidFile(): PidInfo | null {
 }
 
 export class WhistleClient {
-  private readonly baseUrl: string;
-  private readonly authHeader?: string;
+  private readonly config: WhistleClientConfig;
 
   constructor(config: WhistleClientConfig = {}) {
-    const pidInfo = readPidFile();
-    const host = config.host || pidInfo?.host || "127.0.0.1";
-    const port = config.port || pidInfo?.port || 8899;
-    this.baseUrl = `http://${host}:${port}`;
+    this.config = config;
+  }
 
-    if (config.username) {
+  private getConnectionInfo(): { baseUrl: string; authHeader?: string } {
+    const pidInfo = readPidFile();
+    const host = this.config.host || pidInfo?.host || "127.0.0.1";
+    const port = this.config.port || pidInfo?.port || 8899;
+    const baseUrl = `http://${host}:${port}`;
+
+    let authHeader: string | undefined;
+    if (this.config.username) {
       const credentials = Buffer.from(
-        `${config.username}:${config.password || ""}`
+        `${this.config.username}:${this.config.password || ""}`
       ).toString("base64");
-      this.authHeader = `Basic ${credentials}`;
+      authHeader = `Basic ${credentials}`;
     } else if (pidInfo?.auth) {
-      this.authHeader = `Basic ${pidInfo.auth}`;
+      authHeader = `Basic ${pidInfo.auth}`;
     }
+    return { baseUrl, authHeader };
   }
 
   private async request(
@@ -67,7 +72,8 @@ export class WhistleClient {
     } = {}
   ): Promise<any> {
     const { method = "GET", body, params } = options;
-    let url = `${this.baseUrl}${path}`;
+    const { baseUrl, authHeader } = this.getConnectionInfo();
+    let url = `${baseUrl}${path}`;
     if (params) {
       url += `?${new URLSearchParams(params).toString()}`;
     }
@@ -77,8 +83,8 @@ export class WhistleClient {
       "X-Requested-With": "XMLHttpRequest",
       "Cache-Control": "no-cache",
     };
-    if (this.authHeader) {
-      headers["Authorization"] = this.authHeader;
+    if (authHeader) {
+      headers["Authorization"] = authHeader;
     }
     if (body) {
       headers["Content-Type"] = "application/x-www-form-urlencoded";

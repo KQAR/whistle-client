@@ -11,9 +11,9 @@ interface PidInfo {
     auth: string;
 }
 export declare class WhistleClient {
-    private readonly baseUrl;
-    private readonly authHeader?;
+    private readonly config;
     constructor(config?: WhistleClientConfig);
+    private getConnectionInfo;
     private request;
     private clientId;
     getRules(): Promise<any>;
