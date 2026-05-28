@@ -1,5 +1,11 @@
 > Get the latest release: https://github.com/avwo/whistle-client/releases
 
+# v1.7.1
+1. fix: read auth from PID file on each request to survive whistle restarts
+
+# v1.7.0
+1. feat: add MCP server for AI-powered proxy control
+
 # v1.6.2
 1. feat: update whistle to v2.10.2
 2. feat: update electron to v41.0.3
