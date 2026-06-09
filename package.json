@@ -14,7 +14,10 @@
     "lint": "eslint --fix lib",
     "lintfix": "npm run lint",
     "start": "electron ./lib",
-    "build:mcp": "cd mcp-server && npx tsc"
+    "build:mcp": "cd mcp-server && npx tsc",
+    "dist:mac": "bash scripts/build-mac-dmg.sh arm64",
+    "dist:mac:arm64": "bash scripts/build-mac-dmg.sh arm64",
+    "dist:mac:x64": "bash scripts/build-mac-dmg.sh x64"
   },
   "build": {
     "productName": "Whistle",
