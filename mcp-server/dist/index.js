@@ -158,36 +158,60 @@ server.tool("toggleMultiRuleMode", "启用或禁用多规则模式（允许同�
     return { content: [{ type: "text", text: JSON.stringify(result) }] };
 });
 // ===== Network Intercept =====
-server.tool("getInterceptData", "获取抓包数据（捕获的网络请求列表）", {
+server.tool("getInterceptData", "获取抓包概览列表（捕获的网络请求，每条仅含关键字段，不含 body）。支持按 host/path/app/method/状态码/时间窗口过滤。需要完整内容时用返回的 id 调用 getRequestDetail。", {
     url: z
         .string()
         .optional()
-        .describe("按 URL 过滤（支持正则表达式）"),
-    startTime: z
+        .describe("按完整 URL 过滤（支持正则表达式，大小写不敏感）"),
+    host: z
         .string()
         .optional()
-        .describe("起始时间戳(ms)，不传则取最近1秒的数据"),
-    count: z.number().optional().describe("获取数量，默认20条"),
-}, async ({ url, startTime, count }) => {
-    const effectiveStartTime = startTime || String(Date.now() - 1000);
-    const data = await client.getInterceptData({
-        startTime: effectiveStartTime,
-        count: count || 20,
-    });
-    let results = Object.values(data);
-    if (url) {
-        results = results.filter((item) => {
-            try {
-                const regex = new RegExp(url);
-                return regex.test(item.url);
-            }
-            catch {
-                return item.url?.includes(url);
-            }
-        });
-    }
+        .describe("按域名过滤（子串匹配，如 api.example.com）"),
+    path: z
+        .string()
+        .optional()
+        .describe("按路径过滤（子串匹配，如 /user/info）"),
+    app: z
+        .string()
+        .optional()
+        .describe("按发起请求的 App 过滤（匹配 User-Agent 子串，移动端 UA 通常即 App 名/版本）"),
+    method: z
+        .string()
+        .optional()
+        .describe("按请求方法过滤（GET/POST/PUT/...）"),
+    statusCode: z
+        .number()
+        .optional()
+        .describe("按响应状态码精确过滤（如 200、404、503）"),
+    startTime: z
+        .number()
+        .optional()
+        .describe("起始时间戳(ms)，只返回该时间之后的请求；不传则取缓冲区最新的一页"),
+    endTime: z
+        .number()
+        .optional()
+        .describe("结束时间戳(ms)，只返回该时间之前的请求"),
+    count: z.number().optional().describe("返回概览条数，默认20条"),
+    scanLimit: z
+        .number()
+        .optional()
+        .describe("最多扫描多少条原始抓包记录用于过滤，默认1000，上限5000（仅在指定 startTime 时分页生效）"),
+}, async (args) => {
+    const result = await client.getInterceptData(args);
     return {
-        content: [{ type: "text", text: JSON.stringify(results, null, 2) }],
+        content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+    };
+});
+server.tool("getRequestDetail", "通过抓包 id 获取单条请求的完整详情：请求/响应头、解码后的 body（自动 gunzip/brotli/deflate 解压；二进制以 base64 返回）、计时与命中规则。id 来自 getInterceptData 返回的概览。\n注意 body 有两层上限：(1) whistle 自身抓包留存上限默认约 2MB，超过则不保留 body 内容、仅记录 size——此时返回中 body 为空但带 bodyOmitted 说明，不代表请求真的没有内容；(2) 本工具的 maxBodyLength 截断，超出会标记 bodyTruncated=true，调大该参数即可取回更多（上限仍受 whistle 的 2MB 约束）。", {
+    id: z.string().describe("抓包 id（getInterceptData 概览中的 id 字段）"),
+    maxBodyLength: z
+        .number()
+        .optional()
+        .describe("请求/响应 body 的最大返回长度（字符/字节），默认 50000，超出会截断并标记 bodyTruncated。whistle 留存的 body 最大约 2MB，可据此调大"),
+}, async ({ id, maxBodyLength }) => {
+    const detail = await client.getRequestDetail(id, { maxBodyLength });
+    return {
+        content: [{ type: "text", text: JSON.stringify(detail, null, 2) }],
     };
 });
 // ===== Composer =====

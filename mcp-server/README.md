@@ -108,9 +108,34 @@ npm install
 
 | Tool | 说明 |
 |------|------|
-| `getInterceptData` | 获取抓包数据（支持 URL 过滤） |
+| `getInterceptData` | 获取抓包概览列表（支持 host/path/app/method/状态码/时间窗口过滤，每条仅含关键字段） |
+| `getRequestDetail` | 通过抓包 id 获取单条请求完整详情（请求/响应头、解码后的 body、计时、命中规则） |
 | `replayRequest` | 发送/重放 HTTP 请求 |
 | `getCurrentTimestamp` | 获取当前时间戳（配合抓包使用） |
+
+`getInterceptData` 参数：
+
+| 参数 | 说明 |
+|------|------|
+| `url` | 按完整 URL 过滤（正则，大小写不敏感） |
+| `host` | 按域名过滤（子串，如 `api.example.com`） |
+| `path` | 按路径过滤（子串，如 `/user/info`） |
+| `app` | 按发起请求的 App 过滤（匹配 User-Agent 子串，移动端 UA 通常即 App 名/版本） |
+| `method` | 按请求方法过滤（GET/POST/...） |
+| `statusCode` | 按响应状态码精确过滤 |
+| `startTime` / `endTime` | 时间窗口（ms 时间戳）；指定 `startTime` 时会分页扫描该时间之后的流量 |
+| `count` | 返回概览条数（默认 20） |
+| `scanLimit` | 最多扫描多少条原始记录用于过滤（默认 1000，上限 5000） |
+
+返回结构：`{ total, scanned, summaries: [{ id, url, host, path, method, statusCode, app, reqSize, resSize, contentType, startTime, endTime, costMs, isHttps }] }`。
+
+`getRequestDetail(id, maxBodyLength?)` 返回单条请求的 `request` / `response`（含完整 headers 与解码后的 body，自动 gunzip/brotli/deflate 解压，二进制以 base64 返回并标注 `bodyEncoding`）、`timing`（含 `costMs`）与命中的 `rules`。
+
+> **body 大小的两层上限**
+> 1. **whistle 抓包留存上限（约 2MB）**：whistle 在抓包时对单条请求/响应 body 的留存上限默认约 2MB（见 `whistle/lib/inspectors/data.js`）。超过时 whistle 只记录 `size`、不保留内容；此时 `body` 为空但会带 `bodyOmitted` 说明字段，**并非请求真的没有内容**。
+> 2. **maxBodyLength 截断（默认 50000）**：本工具对返回 body 的长度截断，超出会标记 `bodyTruncated: true`。调大 `maxBodyLength` 可取回更多（仍受上面 2MB 约束）。
+>
+> 实测：≤500KB 的请求体、≤1MB 的响应体均可完整取回；3MB 的请求体 whistle 未留存，仅返回 `size` 与 `bodyOmitted`。
 
 ### 工具
 
@@ -176,8 +201,20 @@ url resBody://hello
 > 帮我看看最近有没有请求 `api.example.com`
 
 AI 执行：
-1. `getCurrentTimestamp()` — 获取时间参考
-2. `getInterceptData({ url: "api.example.com", count: 10 })` — 过滤抓包数据
+1. `getInterceptData({ host: "api.example.com", count: 10 })` — 拿到概览列表（含每条的 id）
+2. `getRequestDetail(id)` — 对感兴趣的某条请求取完整请求/响应内容
+
+> 看看 okhttp 这个 App 最近 5 分钟发了哪些 POST 请求
+
+AI 执行：
+```
+getCurrentTimestamp()   // 得到 now
+getInterceptData({ app: "okhttp", method: "POST", startTime: now - 300000, count: 20 })
+```
+
+> 这个接口返回了什么 / 为什么报错
+
+AI 执行：`getInterceptData(...)` 拿到 id 后，`getRequestDetail(id)` 查看响应体与状态码。
 
 ### 请求重放
 

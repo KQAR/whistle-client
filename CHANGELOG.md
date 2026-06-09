@@ -1,5 +1,10 @@
 > Get the latest release: https://github.com/avwo/whistle-client/releases
 
+# v1.8.0
+1. feat: enrich MCP capture tools — filter by host/path/app/method/status/time window, return concise overview summaries
+2. feat: add `getRequestDetail` MCP tool — fetch full request/response (headers, decoded body with gzip/brotli/deflate, timing, matched rules) by capture id
+3. fix: correct intercept-data extraction (was reading the wrong nesting level, breaking URL filtering)
+
 # v1.7.1
 1. fix: read auth from PID file on each request to survive whistle restarts
 
